@@ -24,3 +24,5 @@ build/
 *.png.dec
 icon-key.txt
 .DS_Store
+__pycache__/
+*.pyc
