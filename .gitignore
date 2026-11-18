@@ -1,0 +1,26 @@
+# Port/eame: never commit game data, disc images, packs or saves.
+*.bin
+*.cue
+*.iso
+*.img
+*.chd
+*.sfc
+*.smc
+*.z64
+*.n64
+*.nsp
+*.xci
+*.jar
+*.jad
+*.pak
+*.ebpak
+*.sav
+*.srm
+*.state
+# Build output and private files
+build/
+*.ipa
+*.ipa.sha256
+*.png.dec
+icon-key.txt
+.DS_Store
