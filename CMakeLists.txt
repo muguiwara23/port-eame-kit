@@ -26,10 +26,17 @@ add_library(porteame_kit STATIC
 add_library(porteame::kit ALIAS porteame_kit)
 target_include_directories(porteame_kit PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(porteame_kit PUBLIC SDL3::SDL3)
-set_target_properties(porteame_kit PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
+# gnu99: the POSIX calls ios.c makes (setenv, dup2) are declared everywhere.
+set_target_properties(porteame_kit PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON C_EXTENSIONS ON)
 if(NOT MSVC)
-    target_link_libraries(porteame_kit PUBLIC m)
     target_compile_options(porteame_kit PRIVATE -Wall -Wextra)
+endif()
+if(NOT MSVC AND NOT APPLE)
+    target_link_libraries(porteame_kit PUBLIC m) # Apple's libSystem has the maths
+endif()
+if(APPLE)
+    # iOS marks OpenGL ES deprecated; it still runs (docs/es/rutas.md).
+    target_compile_definitions(porteame_kit PRIVATE GLES_SILENCE_DEPRECATION)
 endif()
 
 if(PORTEAME_GLES2)
