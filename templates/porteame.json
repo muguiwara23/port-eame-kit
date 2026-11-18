@@ -1,0 +1,20 @@
+{
+  "porteame": 1,
+  "app": {
+    "name": "My Game",
+    "display_name": "My Game",
+    "executable": "MyGame",
+    "bundle_id": "org.porteame.mygame",
+    "version": "1.0"
+  },
+  "ipa": "MyGame-{version}-ios-arm64-unsigned.ipa",
+  "licenses": {
+    "MyGame-LICENSE.txt": "LICENSE",
+    "SDL3.txt": "${PORTEAME_SDL3_SOURCE}/LICENSE.txt",
+    "Port-eame-kit.txt": "port-eame-kit/LICENSE"
+  },
+  "files": {},
+  "forbidden": [],
+  "icon": "ios/private/app-icon.png.enc",
+  "plist": {}
+}

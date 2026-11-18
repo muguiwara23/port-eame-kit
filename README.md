@@ -19,10 +19,24 @@ Cada problema que aparece en un port se resuelve aquí una vez y queda escrito, 
 - [Contrato](docs/es/contrato.md): lo que toda app de Port/eame hace igual.
 - [Rutas](docs/es/rutas.md): cómo llega un juego al iPhone según de dónde viene.
 - [Lecciones](docs/es/lecciones.md): cada problema que ya resolvimos, con su causa y su solución.
+- [Cómo usar el kit](docs/es/uso.md): el submódulo, la ficha, el script, el Action y el código.
+
+## Qué trae
+
+| Parte | Dónde |
+| --- | --- |
+| Empaquetador del IPA, leído de la ficha `porteame.json` | `tools/package_ipa.py` |
+| SDL3 para iOS, opciones de CMake y revisión del ejecutable | `tools/ios_env.sh` |
+| El Action de GitHub que usa cada fork | `actions/ios/action.yml`, `templates/port-eame-ios.yml` |
+| Ícono personal cifrado | `tools/port_eame_private.py` |
+| Utilidades de iOS en C (registro, Documents, segundo plano, cerrar) | `include/porteame/ios.h` |
+| Controles táctiles en C, SNES y PS1, con dibujo en OpenGL ES y SDL_Renderer | `include/porteame/touch*.h` |
+| Plantillas para un juego nuevo | `templates/` |
+| Pruebas en Linux | `tests/` |
 
 ## Estado
 
-**v0.1 en preparación.** Por ahora solo los documentos. Después vienen el empaquetador del IPA, SDL3 para iOS, el Action reutilizable, los controles táctiles y las utilidades de iOS. Los primeros juegos en usarlo son Yu-Gi-Oh! Forbidden Memories y EarthBound.
+**v0.1.0.** Probado en Linux: la lógica de los controles, las utilidades de iOS, el empaquetador (da el mismo IPA que los de Yu-Gi-Oh! y EarthBound) y el dibujo de los controles. Falta la prueba en iPhone: primero EarthBound pasa al kit, después Yu-Gi-Oh!.
 
 ## Reglas
 
@@ -56,10 +70,24 @@ Every problem that shows up in a port is solved here once and written down, so t
 - [Contract](docs/en/contract.md): what every Port/eame app does the same way.
 - [Routes](docs/en/routes.md): how a game gets to the iPhone, depending on where it comes from.
 - [Lessons](docs/en/lessons.md): every problem already solved, with its cause and its fix.
+- [How to use the kit](docs/en/usage.md): the submodule, the sheet, the script, the Action and the code.
+
+### What it has
+
+| Part | Where |
+| --- | --- |
+| The IPA packager, driven by the `porteame.json` sheet | `tools/package_ipa.py` |
+| SDL3 for iOS, CMake options and the executable's check | `tools/ios_env.sh` |
+| The GitHub Action each fork uses | `actions/ios/action.yml`, `templates/port-eame-ios.yml` |
+| Encrypted personal icon | `tools/port_eame_private.py` |
+| iOS helpers in C (log, Documents, background, closing) | `include/porteame/ios.h` |
+| Touch controls in C, SNES and PS1, drawn with OpenGL ES or SDL_Renderer | `include/porteame/touch*.h` |
+| Templates for a new game | `templates/` |
+| Tests on Linux | `tests/` |
 
 ### Status
 
-**v0.1 in progress.** For now, only the documents. Next come the IPA packager, SDL3 for iOS, the reusable Action, the touch controls and the iOS utilities. The first games to use it are Yu-Gi-Oh! Forbidden Memories and EarthBound.
+**v0.1.0.** Tested on Linux: the controls' logic, the iOS helpers, the packager (it makes the same IPA as the Yu-Gi-Oh! and EarthBound ones) and the controls' drawing. Not yet tested on an iPhone: EarthBound moves to the kit first, then Yu-Gi-Oh!.
 
 ### Rules
 

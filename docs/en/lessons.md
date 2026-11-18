@@ -17,7 +17,8 @@ Fix: `SDL_main.h` in the file that has `main`, `SDL_MAIN_NOIMPL` in the other fi
 Fix: `-DCMAKE_MACOSX_BUNDLE=OFF` (the kit assembles the `.app`), `-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY`, and the frameworks SDL3 needs are read from `sdl3.pc`.
 
 **The game starts in portrait.**
-Fix: only the landscape orientations in the Info.plist; before the window is created, SDL's orientation hint set to landscape, and full screen.
+Cause: SDL takes a resizable window for "any orientation", and the Info.plist is not read when another app hosts this one (LiveContainer).
+Fix: only the landscape orientations in the Info.plist; before the window is created, SDL's orientation hint set to landscape, and full screen. In the kit: `pe_ios_startup` and `pe_ios_window_flags`.
 
 ## Screen and graphics
 
@@ -48,7 +49,7 @@ Fix: save when going to the background, and also every so often.
 
 **Closing leaves a black screen and you have to close it again.**
 Cause: on iOS, SDL3 doesn't end the app when `main` returns (a comment in its code says so).
-Fix: save, then end the process with `exit()`. Yu-Gi-Oh! already does this through the game's own `exit()`. **Still pending in EarthBound.**
+Fix: save, then end the process with `exit()`. Yu-Gi-Oh! already does this through the game's own `exit()`. In the kit: `return pe_ios_finish(status);` at the end of `main`. **EarthBound gets it when it moves to the kit.**
 
 **There was no way to quit, and quick saves asked for a name.**
 Fix: a "Save and close" button in the menu, and automatic names with the date.

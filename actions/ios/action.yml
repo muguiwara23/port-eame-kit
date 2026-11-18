@@ -1,0 +1,103 @@
+name: Port/eame iOS build
+description: >
+  Builds a Port/eame game for iOS and uploads its unsigned .ipa. The game's
+  repository has the kit as a git submodule (checked out with submodules: true),
+  a porteame.json sheet and a build script that sources tools/ios_env.sh.
+  No ROM, disc, save or signing identity is used.
+
+inputs:
+  sheet:
+    description: The game's porteame.json, from the repository's root
+    default: porteame.json
+  build:
+    description: The game's iOS build script (bash), from the repository's root
+    default: ios/build_ios.sh
+  icon:
+    description: Put the owner's icon in the app ("true" or "false")
+    default: "true"
+  icon-key:
+    description: The key of the encrypted icon (the PORTEAME_ICON_KEY secret)
+    default: ""
+  artifact:
+    description: The name of the uploaded .ipa (default from the sheet's bundle id)
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Tools
+      shell: bash
+      run: |
+        command -v ninja || brew install ninja
+        cmake --version | head -1
+        ninja --version
+        python3 --version
+        echo "xcode=$(xcodebuild -version | tr -cs 'A-Za-z0-9.' '-')" >> "$GITHUB_OUTPUT"
+      id: tools
+
+    - name: The sheet
+      id: sheet
+      shell: bash
+      env:
+        SHEET: ${{ inputs.sheet }}
+        ARTIFACT: ${{ inputs.artifact }}
+        RUN: ${{ github.run_number }}
+      run: |
+        python3 - <<'PY'
+        import json, os
+        sheet = json.load(open(os.environ["SHEET"], encoding="utf-8"))
+        app = sheet["app"]
+        name = os.environ["ARTIFACT"] or app["bundle_id"].split(".")[-1] + "-ios-unsigned-ipa"
+        with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+            out.write(f"version={app.get('version', '0.0.0')}-ios-dev.{os.environ['RUN']}\n")
+            out.write(f"icon={sheet.get('icon', '')}\n")
+            out.write(f"artifact={name}\n")
+        PY
+
+    - name: SDL3 from an earlier build
+      uses: actions/cache@v4
+      with:
+        path: build/ios/deps/sdl3
+        key: porteame-sdl3-3.4.16-${{ runner.os }}-${{ runner.arch }}-${{ steps.tools.outputs.xcode }}-${{ hashFiles('**/port-eame-kit/tools/ios_env.sh') }}
+
+    - name: Build the game and its unsigned .ipa
+      shell: bash
+      env:
+        PORTEAME_WORK: build/ios
+        PORTEAME_VERSION: ${{ steps.sheet.outputs.version }}
+        PORTEAME_ICON_KEY: ${{ inputs.icon-key }}
+        WANT_ICON: ${{ inputs.icon }}
+        ENCRYPTED_ICON: ${{ steps.sheet.outputs.icon }}
+        BUILD: ${{ inputs.build }}
+      run: |
+        # The owner's icon is kept in the repository only encrypted; without
+        # the key, or with the box unticked, the app has no icon.
+        if [ "$WANT_ICON" != "false" ] && [ -n "$PORTEAME_ICON_KEY" ] && [ -n "$ENCRYPTED_ICON" ]; then
+          python3 "$GITHUB_ACTION_PATH/../../tools/port_eame_private.py" decrypt "$ENCRYPTED_ICON" "$RUNNER_TEMP/app-icon.png" "$PORTEAME_ICON_KEY"
+          export PORTEAME_ICON="$RUNNER_TEMP/app-icon.png"
+        else
+          echo "No icon for this build"
+        fi
+        unset PORTEAME_ICON_KEY
+        export PORTEAME_KIT="$(cd "$GITHUB_ACTION_PATH/../.." && pwd)"
+        bash "$BUILD"
+        ls -l build/ios/release
+        unzip -l build/ios/release/*.ipa
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.sheet.outputs.artifact }}
+        path: |
+          build/ios/release/*.ipa
+          build/ios/release/*.ipa.sha256
+        if-no-files-found: error
+        retention-days: 30
+
+    - name: Build log on failure
+      if: failure()
+      shell: bash
+      run: |
+        ls -la build/ios || true
+        find build/ios -name CMakeError.log -o -name CMakeConfigureLog.yaml | head -5 | while read -r log; do
+          echo "::group::$log"; tail -n 200 "$log"; echo "::endgroup::"
+        done

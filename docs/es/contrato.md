@@ -65,7 +65,7 @@ Lo que toda app de Port/eame hace igual, sea el juego que sea. Un port está lis
 
 ## Lo que pone cada juego
 
-- **La ficha `porteame.json`:** nombre, ID, versión, ejecutable, licencias, extensiones prohibidas y distribución de controles.
-- **Un adaptador pequeño:** dónde guarda, cómo se pausa y qué botones usa.
+- **La ficha `porteame.json`:** nombre, ID, versión, ejecutable, licencias, archivos y extensiones prohibidas.
+- **Un adaptador pequeño en su código:** qué control (SNES o PS1), qué manda cada botón, dónde guarda y cómo se pausa.
 
-El formato exacto de los dos se define en el kit v0.1.
+Cómo se hace, en [Cómo usar el kit](uso.md).

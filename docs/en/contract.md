@@ -65,7 +65,7 @@ What every Port/eame app does the same way, whatever the game. A port is ready w
 
 ## What each game provides
 
-- **The `porteame.json` sheet:** name, ID, version, executable, licenses, forbidden extensions and controls layout.
-- **A small adapter:** where it saves, how it pauses and which buttons it uses.
+- **The `porteame.json` sheet:** name, ID, version, executable, licenses, files and forbidden extensions.
+- **A small adapter in its code:** which controller (SNES or PS1), what each button sends, where it saves and how it pauses.
 
-The exact format of both is defined in kit v0.1.
+How, in [How to use the kit](usage.md).

@@ -17,7 +17,8 @@ Solución: `SDL_main.h` en el archivo que tiene `main`, `SDL_MAIN_NOIMPL` en los
 Solución: `-DCMAKE_MACOSX_BUNDLE=OFF` (el kit arma el `.app`), `-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY`, y los frameworks que pide SDL3 se leen de `sdl3.pc`.
 
 **El juego arranca en vertical.**
-Solución: en el Info.plist, solo las orientaciones horizontales; antes de crear la ventana, la pista de orientación de SDL en horizontal, y pantalla completa.
+Causa: SDL toma una ventana que cambia de tamaño por "cualquier orientación", y el Info.plist no se lee cuando otra app hospeda a esta (LiveContainer).
+Solución: en el Info.plist, solo las orientaciones horizontales; antes de crear la ventana, la pista de orientación de SDL en horizontal, y pantalla completa. En el kit: `pe_ios_startup` y `pe_ios_window_flags`.
 
 ## Pantalla y gráficos
 
@@ -48,7 +49,7 @@ Solución: guardar al pasar a segundo plano y además cada cierto tiempo.
 
 **Al cerrar queda una pantalla negra y hay que cerrar otra vez.**
 Causa: en iOS, SDL3 no termina la app cuando `main` regresa (lo dice un comentario en su código).
-Solución: guardar y luego terminar el proceso con `exit()`. Yu-Gi-Oh! ya lo hace con el `exit()` del juego. **En EarthBound queda pendiente.**
+Solución: guardar y luego terminar el proceso con `exit()`. Yu-Gi-Oh! ya lo hace con el `exit()` del juego. En el kit: `return pe_ios_finish(estado);` al final de `main`. **En EarthBound se arregla al pasarlo al kit.**
 
 **No había forma de salir, y los guardados rápidos pedían nombre.**
 Solución: botón "Guardar y cerrar" en el menú, y nombres automáticos con la fecha.
