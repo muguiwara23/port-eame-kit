@@ -110,3 +110,28 @@ porteame_package() {
     [[ -n "${PORTEAME_ICON:-}" ]] && args+=(--icon "$PORTEAME_ICON")
     python3 "$PORTEAME_KIT/tools/package_ipa.py" "${args[@]}" "$@"
 }
+
+# The unsigned .ipa of an app Xcode built (xcodebuild with signing off), under
+# $PORTEAME_WORK/release. Extra arguments go to package_ipa.py.
+porteame_package_app() {
+    local sheet="$1" app="$2"
+    shift 2
+    local args=(--config "$sheet" --app "$app" --out "$PORTEAME_WORK/release")
+    [[ -n "${PORTEAME_VERSION:-}" ]] && args+=(--version "$PORTEAME_VERSION")
+    [[ -n "${PORTEAME_ICON:-}" ]] && args+=(--icon "$PORTEAME_ICON")
+    python3 "$PORTEAME_KIT/tools/package_ipa.py" "${args[@]}" "$@"
+}
+
+# Builds an Xcode project's app for iOS devices with signing off; prints
+# nothing but xcodebuild's output and leaves the app at
+# $PORTEAME_WORK/xcode/Release-iphoneos/<product>.app. Extra arguments are
+# build settings (NAME=value) or xcodebuild options.
+porteame_xcodebuild() {
+    local project="$1" target="$2"
+    shift 2
+    xcodebuild -project "$project" -target "$target" -configuration Release -sdk iphoneos \
+        SYMROOT="$PORTEAME_WORK/xcode" OBJROOT="$PORTEAME_WORK/xcode-obj" \
+        IPHONEOS_DEPLOYMENT_TARGET="$PORTEAME_MINIMUM_IOS" ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+        CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+        "$@" build
+}

@@ -3,6 +3,7 @@
 
     package_ipa.py --config porteame.json --binary PATH --out DIR
                    [--version 0.5-ios-dev.12] [--icon icon.png] [--extra DIR]
+    package_ipa.py --config porteame.json --app Built.app --out DIR [...]
 
 The game's sheet (porteame.json, docs/es/uso.md) says what goes in the app:
 its names, its bundle id, its license notices and any other files. This
@@ -14,6 +15,12 @@ tool (AltStore, SideStore, FlareStore, LiveContainer) signs it.
 The app never holds the game's data: the player puts their own copy in the
 app's Documents folder with the Files app. The check refuses an .ipa with a
 file of a forbidden extension (ROMs, disc images, packs, saves).
+
+--app takes an app Xcode already built (xcodebuild with signing off) in
+place of an executable: its own Info.plist, resources and orientations are
+kept; the sheet's bundle id, display name, version and "plist" keys are set
+on it, and every signature is taken out. The sheet's "allow" lists file names
+that may go in although their extension is forbidden (a runtime's own .jar).
 
 --extra DIR copies a folder the game's build prepared into the app as is
 (Yu-Gi-Oh!'s mods); its .dylib files keep no signature and are executable.
@@ -171,10 +178,50 @@ def stage_icon(app_dir, icon, info, minimum_ios):
     info["CFBundleIcons~ipad"] = {"CFBundlePrimaryIcon": {"CFBundleIconFiles": ["AppIcon60x60", "AppIcon76x76", "AppIcon83.5x83.5"]}}
 
 
+def stage_png_icons(app_dir, icon, info):
+    """The icon as plain PNG files named by CFBundleIconFiles (no catalog)."""
+    if not shutil.which("sips"):
+        fail("an icon needs macOS's sips")
+    sizes = {"AppIcon60x60@2x.png": 120, "AppIcon60x60@3x.png": 180,
+             "AppIcon76x76@2x~ipad.png": 152, "AppIcon83.5x83.5@2x~ipad.png": 167}
+    for name, size in sizes.items():
+        subprocess.run(["sips", "-s", "format", "png", "-z", str(size), str(size), str(icon), "--out", str(app_dir / name)],
+                       check=True, stdout=subprocess.DEVNULL)
+    info["CFBundleIcons"] = {"CFBundlePrimaryIcon": {"CFBundleIconFiles": ["AppIcon60x60"]}}
+    info["CFBundleIcons~ipad"] = {"CFBundlePrimaryIcon": {"CFBundleIconFiles": ["AppIcon60x60", "AppIcon76x76", "AppIcon83.5x83.5"]}}
+    print("icon: plain PNG icons")
+
+
 def remove_signature(path):
     """No signature at all: a stale or ad hoc one only confuses signing tools."""
     if shutil.which("codesign"):
         subprocess.run(["codesign", "--remove-signature", str(path)], check=False)
+
+
+def is_executable(path):
+    return bool(path.stat().st_mode & stat.S_IXUSR)
+
+
+def stage_built_app(built, app_dir, app):
+    """An app Xcode built, copied as it is minus its signatures."""
+    if not (built / "Info.plist").is_file():
+        fail(f"{built} is not an app (no Info.plist)")
+    shutil.copytree(built, app_dir, symlinks=True)
+    for leftover in list(app_dir.rglob("_CodeSignature")) + list(app_dir.rglob("embedded.mobileprovision")):
+        if leftover.is_dir():
+            shutil.rmtree(leftover)
+        else:
+            leftover.unlink()
+    info = plistlib.loads((app_dir / "Info.plist").read_bytes())
+    built_executable = info.get("CFBundleExecutable", "")
+    if built_executable != app["executable"]:
+        fail(f'the built app\'s executable is "{built_executable}", the sheet says "{app["executable"]}"')
+    executables = set()
+    for path in app_dir.rglob("*"):
+        if path.is_file() and not path.is_symlink() and is_executable(path):
+            remove_signature(path)
+            executables.add(path)
+    return info, executables
 
 
 def short_version(text, fallback):
@@ -193,7 +240,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
                                      allow_abbrev=False)
     parser.add_argument("--config", type=Path, required=True, help="the game's porteame.json")
-    parser.add_argument("--binary", type=Path, required=True, help="the linked iOS executable")
+    what = parser.add_mutually_exclusive_group(required=True)
+    what.add_argument("--binary", type=Path, help="the linked iOS executable")
+    what.add_argument("--app", type=Path, help="an app Xcode built, in place of --binary")
     parser.add_argument("--out", type=Path, required=True, help="where the .ipa goes")
     parser.add_argument("--version", default="", help="the version in the .ipa's name; its leading numbers are the app's")
     parser.add_argument("--build-number", default="", help="CFBundleVersion (default: from the git revision)")
@@ -206,25 +255,32 @@ def main(argv=None):
     root = config.parent
     sheet = load_sheet(config)
     app = sheet["app"]
-    binary = options.binary.resolve()
-    if not binary.is_file():
-        fail(f"no executable at {binary}: build it first")
+    built = (options.app or options.binary).resolve()
+    if options.binary and not built.is_file():
+        fail(f"no executable at {built}: build it first")
+    if options.app and not built.is_dir():
+        fail(f"no app at {built}: build it first")
     version_text = options.version or app.get("version", "0.0.0")
     version = short_version(version_text, short_version(app.get("version", ""), "0.0.0"))
     number = build_number(root, options.build_number)
     forbidden = tuple(sorted(set(ALWAYS_FORBIDDEN) | {e.lower() for e in sheet.get("forbidden", [])}))
+    allowed = set(sheet.get("allow", []))
 
     out = options.out.resolve()
     stage = out / "stage"
     shutil.rmtree(stage, ignore_errors=True)
     app_dir = stage / "Payload" / f"{app['name']}.app"
-    app_dir.mkdir(parents=True)
     executable = app_dir / app["executable"]
-    shutil.copyfile(binary, executable)
-    executable.chmod(0o755)
-    remove_signature(executable)
-    (app_dir / "PkgInfo").write_text("APPL????")
-    executables = {executable}
+    if options.app:
+        app_dir.parent.mkdir(parents=True)
+        built_info, executables = stage_built_app(built, app_dir, app)
+    else:
+        app_dir.mkdir(parents=True)
+        shutil.copyfile(built, executable)
+        executable.chmod(0o755)
+        remove_signature(executable)
+        (app_dir / "PkgInfo").write_text("APPL????")
+        executables = {executable}
 
     # License notices, in the folder the sheet names (default "licenses").
     licenses = app_dir / sheet.get("licenses_folder", "licenses")
@@ -253,9 +309,25 @@ def main(argv=None):
         remove_signature(library)
         executables.add(library)
 
-    info = info_plist(app, version, number)
+    if options.app:
+        # The built app's own Info.plist, with the sheet's names and version.
+        info = built_info
+        info["CFBundleIdentifier"] = app["bundle_id"]
+        if app.get("display_name"):
+            info["CFBundleDisplayName"] = app["display_name"]
+        info["CFBundleShortVersionString"] = version
+        info["CFBundleVersion"] = number
+    else:
+        info = info_plist(app, version, number)
     if options.icon:
-        stage_icon(app_dir, options.icon.resolve(), info, info["MinimumOSVersion"])
+        if options.app:
+            # Plain PNG icons: actool would replace the app's own Assets.car.
+            info.pop("CFBundleIcons", None)
+            info.pop("CFBundleIcons~ipad", None)
+            info.pop("CFBundleIconName", None)
+            stage_png_icons(app_dir, options.icon.resolve(), info)
+        else:
+            stage_icon(app_dir, options.icon.resolve(), info, info["MinimumOSVersion"])
     # The sheet's own keys last: they add to or change the defaults.
     info.update(sheet.get("plist", {}))
     (app_dir / "Info.plist").write_bytes(plistlib.dumps(info, fmt=plistlib.FMT_BINARY))
@@ -265,6 +337,8 @@ def main(argv=None):
     archive.unlink(missing_ok=True)
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
         for path in sorted(stage.rglob("*")):
+            if path.is_symlink():
+                fail(f"an iOS app holds no symbolic links: {path.relative_to(stage)}")
             if path.is_dir():
                 continue
             entry = zipfile.ZipInfo.from_file(path, path.relative_to(stage).as_posix())
@@ -286,14 +360,14 @@ def main(argv=None):
             fail("the .ipa's executable differs from the staged one")
         if not read.get("UIApplicationSceneManifest") or read.get("UIFileSharingEnabled") is not True:
             fail("the .ipa's Info.plist lost the scene manifest or the Files folder")
-        found = [n for n in names if n.lower().endswith(forbidden)]
+        found = [n for n in names if n.lower().endswith(forbidden) and n.rsplit("/", 1)[-1] not in allowed]
         if found:
             fail(f"the .ipa must hold no game data or saves: {found}")
     checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
     Path(str(archive) + ".sha256").write_text(f"{checksum}  {archive.name}\n")
     print(f"{archive} ({archive.stat().st_size} bytes, {len(names)} files)")
     print(f"sha256 {checksum}")
-    print(f"bundle id {app['bundle_id']}, version {version} ({number}), iOS {read['MinimumOSVersion']}+, unsigned")
+    print(f"bundle id {app['bundle_id']}, version {version} ({number}), iOS {read.get('MinimumOSVersion', '?')}+, unsigned")
     return 0
 
 

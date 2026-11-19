@@ -20,6 +20,56 @@ def run(*args, ok=True):
     return done
 
 
+def app_mode(scratch):
+    """An app Xcode built: kept as it is, renamed, unsigned, checked."""
+    root = scratch / "xcode-game"
+    built = root / "build" / "JarBox.app"
+    (built / "_CodeSignature").mkdir(parents=True)
+    (built / "_CodeSignature" / "CodeResources").write_text("sig")
+    (built / "embedded.mobileprovision").write_text("profile")
+    (built / "JarBox").write_bytes(b"\xcf\xfa\xed\xfe" + os.urandom(64))
+    (built / "JarBox").chmod(0o755)
+    (built / "Assets.car").write_bytes(b"car")
+    (built / "minijvm_rt.jar").write_bytes(b"PK")
+    (built / "Info.plist").write_bytes(plistlib.dumps({
+        "CFBundleExecutable": "JarBox", "CFBundleIdentifier": "com.example.old", "CFBundleDisplayName": "Old",
+        "UIApplicationSceneManifest": {"UIApplicationSupportsMultipleScenes": False},
+        "UIFileSharingEnabled": True, "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
+    }, fmt=plistlib.FMT_BINARY))
+    sheet = {"porteame": 1,
+             "app": {"name": "Port-eame Java", "display_name": "Port/eame Java", "executable": "JarBox",
+                     "bundle_id": "org.porteame.java", "version": "0.1"},
+             "ipa": "PortEameJava-{version}-ios-arm64-unsigned.ipa",
+             "forbidden": [".jar", ".jad"], "allow": ["minijvm_rt.jar"],
+             "plist": {"CFBundleName": "Port-eame Java"}}
+    (root / "porteame.json").write_text(json.dumps(sheet))
+    out = scratch / "app-out"
+    run("--config", root / "porteame.json", "--app", built, "--out", out, "--version", "0.1-ios-dev.3",
+        "--build-number", "5")
+    with zipfile.ZipFile(out / "PortEameJava-0.1-ios-dev.3-ios-arm64-unsigned.ipa") as bundle:
+        names = set(bundle.namelist())
+        prefix = "Payload/Port-eame Java.app/"
+        assert prefix + "Assets.car" in names and prefix + "minijvm_rt.jar" in names
+        assert not any("_CodeSignature" in n or "mobileprovision" in n for n in names), names
+        assert (bundle.getinfo(prefix + "JarBox").external_attr >> 16) & stat.S_IXUSR
+        info = plistlib.loads(bundle.read(prefix + "Info.plist"))
+        assert info["CFBundleIdentifier"] == "org.porteame.java"
+        assert info["CFBundleDisplayName"] == "Port/eame Java"
+        assert info["CFBundleShortVersionString"] == "0.1" and info["CFBundleVersion"] == "5"
+        assert info["UISupportedInterfaceOrientations"] == ["UIInterfaceOrientationPortrait"]  # the app's own
+        assert info["CFBundleName"] == "Port-eame Java"
+    # A game's .jar in the app is refused; the runtime's own is allowed.
+    (built / "SomeGame.jar").write_bytes(b"PK")
+    refused = run("--config", root / "porteame.json", "--app", built, "--out", out, ok=False)
+    assert "no game data" in refused.stderr and "SomeGame.jar" in refused.stderr, refused.stderr
+    (built / "SomeGame.jar").unlink()
+    # The sheet must name the built executable.
+    sheet["app"]["executable"] = "Other"
+    (root / "porteame.json").write_text(json.dumps(sheet))
+    refused = run("--config", root / "porteame.json", "--app", built, "--out", out, ok=False)
+    assert "executable" in refused.stderr, refused.stderr
+
+
 def main():
     with tempfile.TemporaryDirectory() as scratch:
         game = Path(scratch) / "game"
@@ -94,6 +144,7 @@ def main():
         (game / "porteame.json").write_text(json.dumps(sheet))
         refused = run("--config", game / "porteame.json", "--binary", binary, "--out", out, ok=False)
         assert "format" in refused.stderr, refused.stderr
+        app_mode(Path(scratch))
     print("package: all good")
 
 

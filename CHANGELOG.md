@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.0
+
+- `package_ipa.py --app`: packages an app Xcode built (signing off), keeping its own Info.plist and resources, setting the sheet's id, name and version, taking every signature out; the sheet's `allow` lets a runtime's own files through the forbidden extensions.
+- `ios_env.sh`: `porteame_xcodebuild` and `porteame_package_app` for Xcode projects.
+
 ## v0.1.0
 
 The first kit, from what the Yu-Gi-Oh! Forbidden Memories and EarthBound ports already proved.

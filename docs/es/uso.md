@@ -44,6 +44,8 @@ El kit siempre rechaza ROMs, imágenes de disco y partidas (`.sfc .smc .bin .cue
 
 `ios/build_ios.sh` (plantilla en `templates/build_ios.sh`): carga `tools/ios_env.sh` del kit, compila SDL3, compila el juego con CMake para iOS, revisa que el ejecutable sea de iOS arm64 y arma el IPA. El juego solo cambia sus opciones de CMake y el nombre de su ejecutable.
 
+**Si el proyecto se compila con Xcode** (un `.xcodeproj`, como Port/eame Java), el script usa `porteame_xcodebuild proyecto.xcodeproj objetivo` y luego `porteame_package_app porteame.json ruta/App.app`. La app conserva su propio Info.plist (orientaciones, permisos), y el kit le pone el ID, el nombre, la versión y las llaves `plist` de la ficha y le quita las firmas. En la ficha, `allow` nombra archivos que sí pueden ir aunque su extensión esté prohibida, como los `.jar` del propio motor.
+
 ## 4. El Action
 
 Copiar `templates/port-eame-ios.yml` a `.github/workflows/port-eame-ios.yml`. Usa la acción del kit (`port-eame-kit/actions/ios`), con botón manual, opción de Mac Intel o Apple Silicon y la casilla del ícono. El ícono se descifra con el secreto `PORTEAME_ICON_KEY` del repositorio.
